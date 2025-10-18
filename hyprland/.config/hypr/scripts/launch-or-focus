@@ -1,0 +1,40 @@
+#!/bin/bash
+
+# Hyprland Window Launcher and Focus Manager
+# This script is a modified version of https://github.com/basecamp/omarchy/blob/master/bin/omarchy-launch-or-focus
+#
+# DESCRIPTION:
+#   Searches for an existing window matching the given pattern. If found, focuses on it.
+#   If not found, launches the application using the provided command. Optionally pins
+#   the new window to a specific workspace.
+#
+# FEATURES:
+#   - Window pattern matching against both class and title
+#   - Launch applications if window not found
+#   - Optional workspace targeting for new windows
+#   - Integration with Hyprland window manager
+#
+# DEPENDENCIES:
+#   - hyprctl (Hyprland control utility)
+#   - jq (JSON processor)
+
+# Log execution details
+if (($# < 2)); then
+  echo "Usage: launch-or-focus <window-pattern> <launch-command> [workspace]"
+  exit 1
+fi
+
+WINDOW_PATTERN="$1"
+LAUNCH_COMMAND="${2:-"uwsm app -- $WINDOW_PATTERN"}"
+TARGET_WORKSPACE="$3"
+
+WINDOW_ADDRESS=$(hyprctl clients -j | jq -r --arg p "$WINDOW_PATTERN" '.[]|select((.class|test("\\b" + $p + "\\b";"i")) or (.title|test("\\b" + $p + "\\b";"i")))|.address' | head -n1)
+
+if [[ -n $WINDOW_ADDRESS ]]; then
+  hyprctl dispatch focuswindow "address:$WINDOW_ADDRESS"
+else
+  if [[ -n $TARGET_WORKSPACE ]]; then
+    hyprctl dispatch workspace "$TARGET_WORKSPACE"
+  fi
+  hyprctl dispatch exec "$LAUNCH_COMMAND"
+fi
